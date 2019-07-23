@@ -569,6 +569,7 @@ export const controls = {
       'Portugal',
       'Russia',
       'Singapore',
+      'Somalia',
       'Spain',
       'Thailand',
       'Timorleste',
