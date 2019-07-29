@@ -591,35 +591,6 @@ class DashboardAddView(DashboardModelView):  # noqa
 appbuilder.add_view_no_menu(DashboardAddView)
 
 
-class LogModelView(SupersetModelView):
-    datamodel = SQLAInterface(models.Log)
-
-    list_title = _("Logs")
-    show_title = _("Show Log")
-    add_title = _("Add Log")
-    edit_title = _("Edit Log")
-
-    list_columns = ("user", "action", "dttm")
-    edit_columns = ("user", "action", "dttm", "json")
-    base_order = ("dttm", "desc")
-    label_columns = {
-        "user": _("User"),
-        "action": _("Action"),
-        "dttm": _("dttm"),
-        "json": _("JSON"),
-    }
-
-
-appbuilder.add_view(
-    LogModelView,
-    "Action Log",
-    label=__("Action Log"),
-    category="Security",
-    category_label=__("Security"),
-    icon="fa-list-ol",
-)
-
-
 @app.route("/health")
 def health():
     return "OK"
@@ -1008,12 +979,7 @@ class Superset(BaseSupersetView):
             logging.exception(e)
             return json_error_response(e)
 
-        if query_obj and query_obj["prequeries"]:
-            query_obj["prequeries"].append(query)
-            query = ";\n\n".join(query_obj["prequeries"])
-        if query:
-            query += ";"
-        else:
+        if not query:
             query = "No query."
 
         return self.json_response(
@@ -2833,7 +2799,7 @@ class Superset(BaseSupersetView):
             return self.dashboard(str(welcome_dashboard_id))
 
         payload = {
-            "user": bootstrap_user_data(),
+            "user": bootstrap_user_data(g.user),
             "common": self.common_bootstrap_payload(),
         }
 
@@ -2851,8 +2817,14 @@ class Superset(BaseSupersetView):
         if not username and g.user:
             username = g.user.username
 
+        user = (
+            db.session.query(ab_models.User).filter_by(username=username).one_or_none()
+        )
+        if not user:
+            abort(404, description=f"User: {username} does not exist.")
+
         payload = {
-            "user": bootstrap_user_data(username, include_perms=True),
+            "user": bootstrap_user_data(user, include_perms=True),
             "common": self.common_bootstrap_payload(),
         }
 

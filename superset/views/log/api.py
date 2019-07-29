@@ -14,30 +14,33 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-# pylint: disable=C,R,W
-from superset.db_engine_specs.base import BaseEngineSpec
+from flask_appbuilder import ModelRestApi
+from flask_appbuilder.models.sqla.interface import SQLAInterface
+
+from superset import app, appbuilder
+import superset.models.core as models
+from . import LogMixin
 
 
-class DruidEngineSpec(BaseEngineSpec):
-    """Engine spec for Druid.io"""
+class LogRestApi(LogMixin, ModelRestApi):
+    datamodel = SQLAInterface(models.Log)
 
-    engine = "druid"
-    allows_joins = False
-    allows_subqueries = True
-
-    time_grain_functions = {
-        None: "{col}",
-        "PT1S": "FLOOR({col} TO SECOND)",
-        "PT1M": "FLOOR({col} TO MINUTE)",
-        "PT1H": "FLOOR({col} TO HOUR)",
-        "P1D": "FLOOR({col} TO DAY)",
-        "P1W": "FLOOR({col} TO WEEK)",
-        "P1M": "FLOOR({col} TO MONTH)",
-        "P0.25Y": "FLOOR({col} TO QUARTER)",
-        "P1Y": "FLOOR({col} TO YEAR)",
+    class_permission_name = "LogModelView"
+    method_permission_name = {
+        "get_list": "list",
+        "get": "show",
+        "post": "add",
+        "put": "edit",
+        "delete": "delete",
+        "info": "list",
     }
+    resource_name = "log"
+    allow_browser_login = True
+    list_columns = ("user.username", "action", "dttm")
 
-    @classmethod
-    def alter_new_orm_column(cls, orm_col):
-        if orm_col.column_name == "__time":
-            orm_col.is_dttm = True
+
+if (
+    not app.config.get("FAB_ADD_SECURITY_VIEWS") is False
+    or app.config.get("SUPERSET_LOG_VIEW") is False
+):
+    appbuilder.add_api(LogRestApi)
