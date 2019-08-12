@@ -647,6 +647,18 @@ Note that you can run the ``superset refresh_druid`` command to refresh the
 metadata from your Druid cluster(s)
 
 
+Presto
+------
+
+By default Superset assumes the most recent version of Presto is being used when
+querying the datasource. If you're using an older version of presto, you can configure
+it in the ``extra`` parameter::
+
+    {
+        "version": "0.123"
+    }
+
+
 CORS
 ----
 
@@ -667,7 +679,7 @@ DOMAIN SHARDING
 
 Chrome allows up to 6 open connections per domain at a time. When there are more
 than 6 slices in dashboard, a lot of time fetch requests are queued up and wait for
-next available socket. PR (`#5039 <https://github.com/apache/incubator-superset/pull/5039>`) adds domain sharding to Superset,
+next available socket. `PR 5039 <https://github.com/apache/incubator-superset/pull/5039>`_ adds domain sharding to Superset,
 and this feature will be enabled by configuration only (by default Superset
 doesn't allow cross-domain request).
 
@@ -726,9 +738,9 @@ Example of a simple JSON to Stdout class::
                 print(json.dumps(log))
 
 
-Then on Superset's config reference the class you want to use::
+Then on Superset's config pass an instance of the logger type you want to use.
 
-    EVENT_LOGGER = JSONStdOutEventLogger
+    EVENT_LOGGER = JSONStdOutEventLogger()
 
 
 Upgrading
@@ -1042,7 +1054,7 @@ your environment. See `CONTRIBUTING.md#setup-local-environment-for-development <
 Blueprints
 ----------
 
-`Blueprints are Flask's reusable apps <http://flask.pocoo.org/docs/0.12/blueprints/>`_.
+`Blueprints are Flask's reusable apps <https://flask.palletsprojects.com/en/1.0.x/tutorial/views/>`_.
 Superset allows you to specify an array of Blueprints
 in your ``superset_config`` module. Here's
 an example of how this can work with a simple Blueprint. By doing
@@ -1161,3 +1173,25 @@ Then we can add this two lines to ``superset_config.py``:
 
   from custom_sso_security_manager import CustomSsoSecurityManager
   CUSTOM_SECURITY_MANAGER = CustomSsoSecurityManager
+
+Feature Flags
+---------------------------
+
+Because of a wide variety of users, Superset has some features that are not enabled by default. For example, some users have stronger security restrictions, while some others may not. So Superset allow users to enable or disable some features by config. For feature owners, you can add optional functionalities in Superset, but will be only affected by a subset of users.
+
+You can enable or disable features with flag from ``superset_config.py``:
+
+.. code-block:: python
+
+     DEFAULT_FEATURE_FLAGS = {
+         'CLIENT_CACHE': False,
+         'ENABLE_EXPLORE_JSON_CSRF_PROTECTION': False
+     }
+
+Here is a list of flags and descriptions:
+
+* ENABLE_EXPLORE_JSON_CSRF_PROTECTION
+
+  * For some security concerns, you may need to enforce CSRF protection on all query request to explore_json endpoint. In Superset, we use `flask-csrf <https://sjl.bitbucket.io/flask-csrf/>`_ add csrf protection for all POST requests, but this protection doesn't apply to GET method.
+
+  * When ENABLE_EXPLORE_JSON_CSRF_PROTECTION is set to true, your users cannot make GET request to explore_json. The default value for this feature False (current behavior), explore_json accepts both GET and POST request. See `PR 7935 <https://github.com/apache/incubator-superset/pull/7935>`_ for more details.

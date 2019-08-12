@@ -27,6 +27,9 @@ from .base_tests import SupersetTestCase
 
 
 class DatabaseModelTestCase(SupersetTestCase):
+    @unittest.skipUnless(
+        SupersetTestCase.is_module_installed("requests"), "requests not installed"
+    )
     def test_database_schema_presto(self):
         sqlalchemy_uri = "presto://presto.airbnb.io:8080/hive/default"
         model = Database(sqlalchemy_uri=sqlalchemy_uri)
@@ -289,23 +292,3 @@ class SqlaTableModelTestCase(SupersetTestCase):
             tbl.get_query_str(query_obj)
 
         self.assertTrue("Metric 'invalid' does not exist", context.exception)
-
-    def test_query_with_non_existent_filter_columns(self):
-        tbl = self.get_table_by_name("birth_names")
-
-        query_obj = dict(
-            groupby=[],
-            metrics=["count"],
-            filter=[{"col": "invalid", "op": "==", "val": "male"}],
-            is_timeseries=False,
-            columns=["name"],
-            granularity=None,
-            from_dttm=None,
-            to_dttm=None,
-            extras={},
-        )
-
-        with self.assertRaises(Exception) as context:
-            tbl.get_query_str(query_obj)
-
-        self.assertTrue("Column 'invalid' does not exist", context.exception)

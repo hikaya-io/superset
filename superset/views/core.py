@@ -53,6 +53,7 @@ from superset import (
     db,
     event_logger,
     get_feature_flags,
+    is_feature_enabled,
     results_backend,
     security_manager,
     sql_lab,
@@ -1047,12 +1048,18 @@ class Superset(BaseSupersetView):
         payload = viz_obj.get_payload()
         return data_payload_response(*viz_obj.payload_json_and_has_error(payload))
 
+    EXPLORE_JSON_METHODS = ["POST"]
+    if not is_feature_enabled("ENABLE_EXPLORE_JSON_CSRF_PROTECTION"):
+        EXPLORE_JSON_METHODS.append("GET")
+
     @event_logger.log_this
     @api
     @has_access_api
     @handle_api_exception
-    @expose("/explore_json/<datasource_type>/<datasource_id>/", methods=["GET", "POST"])
-    @expose("/explore_json/", methods=["GET", "POST"])
+    @expose(
+        "/explore_json/<datasource_type>/<datasource_id>/", methods=EXPLORE_JSON_METHODS
+    )
+    @expose("/explore_json/", methods=EXPLORE_JSON_METHODS)
     @etag_cache(CACHE_DEFAULT_TIMEOUT, check_perms=check_datasource_perms)
     def explore_json(self, datasource_type=None, datasource_id=None):
         """Serves all request that GET or POST form_data
@@ -2392,7 +2399,7 @@ class Superset(BaseSupersetView):
             )
 
         query = db.session.query(Query).filter_by(results_key=key).one()
-        rejected_tables = security_manager.rejected_datasources(
+        rejected_tables = security_manager.rejected_tables(
             query.sql, query.database, query.schema
         )
         if rejected_tables:
@@ -2514,7 +2521,7 @@ class Superset(BaseSupersetView):
         if not mydb:
             json_error_response("Database with id {} is missing.".format(database_id))
 
-        rejected_tables = security_manager.rejected_datasources(sql, mydb, schema)
+        rejected_tables = security_manager.rejected_tables(sql, mydb, schema)
         if rejected_tables:
             return json_error_response(
                 security_manager.get_table_access_error_msg(rejected_tables),
@@ -2638,7 +2645,7 @@ class Superset(BaseSupersetView):
         logging.info("Exporting CSV file [{}]".format(client_id))
         query = db.session.query(Query).filter_by(client_id=client_id).one()
 
-        rejected_tables = security_manager.rejected_datasources(
+        rejected_tables = security_manager.rejected_tables(
             query.sql, query.database, query.schema
         )
         if rejected_tables:
