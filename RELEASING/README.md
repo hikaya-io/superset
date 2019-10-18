@@ -53,8 +53,9 @@ need to be done at every release.
 Now let's craft a source release
 ```bash
     # Assuming these commands are executed from the root of the repo
-    # Setting a VERSION var will be useful
-    export VERSION=0.31.0rc18
+    export REPO_DIR=$(pwd)
+    # Set VERSION to the release being prepared (rc1 for first vote on version)
+    export VERSION=0.34.1rc1
     export RELEASE=apache-superset-incubating-${VERSION}
     export RELEASE_TARBALL=${RELEASE}-source.tar.gz
 
@@ -69,7 +70,7 @@ Now let's craft a source release
         -o ~/svn/superset_dev/${VERSION}/${RELEASE_TARBALL}
 
     cd ~/svn/superset_dev/${VERSION}/
-    scripts/sign.sh ${RELEASE}-source.tar.gz
+    ${REPO_DIR}/scripts/sign.sh ${RELEASE}-source.tar.gz
 ```
 
 ## Shipping to SVN
@@ -79,7 +80,7 @@ Now let's ship this RC into svn's dev folder
 ```bash
     cd ~/svn/superset_dev/
     svn add ${VERSION}
-    svn commit
+    svn commit -m "${VERSION}"
 ```
 
 Now you're ready to start the VOTE thread.
@@ -96,11 +97,18 @@ folder.
     cp -r ~/svn/superset_dev/${VERSION}/ ~/svn/superset/${VERSION}/
     cd ~/svn/superset/
     svn add ${VERSION}
-    svn commit
+    svn commit -m "${VERSION}"
 ```
 
 Now you can announce the release on the mailing list, make sure to use the
 proper template
+
+## Post release
+
+In `UPDATING.md`, a file that contains a list of notifications around
+deprecations and upgrading-related topics,
+make sure to move the content now under the `Next Version` section under a new
+section for the new release.
 
 ## Build from source tarball
 

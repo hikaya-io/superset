@@ -23,6 +23,14 @@ assists people when migrating to a new version.
 
 ## Next Version
 
+* [8370](https://github.com/apache/incubator-superset/pull/8370): Deprecates
+  the `HTTP_HEADERS` variable in favor of `DEFAULT_HTTP_HEADERS` and
+  `OVERRIDE_HTTP_HEADERS`. To retain the same behavior you should use
+  `OVERRIDE_HTTP_HEADERS` instead of `HTTP_HEADERS`. `HTTP_HEADERS` will still
+  work but may be removed in a future update.
+
+* We're deprecating the concept of "restricted metric", this feature
+  was not fully working anyhow.
 * [8117](https://github.com/apache/incubator-superset/pull/8117): If you are
 using `ENABLE_PROXY_FIX = True`, review the newly-introducted variable,
 `PROXY_FIX_CONFIG`, which changes the proxy behavior in accordance with
@@ -34,7 +42,13 @@ using `ENABLE_PROXY_FIX = True`, review the newly-introducted variable,
 backend serialization. To disable set `RESULTS_BACKEND_USE_MSGPACK = False`
 in your configuration.
 
-* [7848](https://github.com/apache/incubator-superset/pull/7848): If you are 
+* [8371](https://github.com/apache/incubator-superset/pull/8371): makes
+`tables.table_name`, `dbs.database_name`, `datasources.cluster_name`, and `clusters.cluster_name` non-nullable.
+Depending on the integrity of the data, manual intervention may be required.
+
+## 0.34.0
+
+* [7848](https://github.com/apache/incubator-superset/pull/7848): If you are
 running redis with celery, celery bump to 4.3.0 requires redis-py upgrade to
 3.2.0 or later.
 

@@ -38,6 +38,7 @@ const propTypes = {
   filterImmuneSlices: PropTypes.arrayOf(PropTypes.number).isRequired,
   filterImmuneSliceFields: PropTypes.object.isRequired,
   setDirectPathToChild: PropTypes.func.isRequired,
+  filterFieldOnFocus: PropTypes.object.isRequired,
 };
 
 const defaultProps = {
@@ -62,6 +63,7 @@ export default class FilterIndicatorsContainer extends React.PureComponent {
       chartId: currentChartId,
       filterImmuneSlices,
       filterImmuneSliceFields,
+      filterFieldOnFocus,
     } = this.props;
 
     if (Object.keys(dashboardFilters).length === 0) {
@@ -108,6 +110,9 @@ export default class FilterIndicatorsContainer extends React.PureComponent {
                 (isDateFilter && columns[name] === 'No filter')
                   ? []
                   : [].concat(columns[name]),
+              isFilterFieldActive:
+                chartId === filterFieldOnFocus.chartId &&
+                name === filterFieldOnFocus.column,
             };
 
             // do not apply filter on fields in the filterImmuneSliceFields map
@@ -145,30 +150,25 @@ export default class FilterIndicatorsContainer extends React.PureComponent {
     }
 
     const indicators = this.getFilterIndicators();
-    // if total indicators <= 5, show all
-    // else: show top 4 indicators, and show all the rest in group
-    const showExtraIndicatorsInGroup =
-      indicators.length > FILTER_INDICATORS_DISPLAY_LENGTH + 1;
+    // if total indicators <= FILTER_INDICATORS_DISPLAY_LENGTH,
+    // show indicator for each filter field.
+    // else: show single group indicator.
+    const showIndicatorsInGroup =
+      indicators.length > FILTER_INDICATORS_DISPLAY_LENGTH;
 
     return (
       <div className="dashboard-filter-indicators-container">
-        {indicators
-          .filter((indicator, index) => {
-            if (showExtraIndicatorsInGroup) {
-              return index < FILTER_INDICATORS_DISPLAY_LENGTH;
-            }
-            return true;
-          })
-          .map(indicator => (
+        {!showIndicatorsInGroup &&
+          indicators.map(indicator => (
             <FilterIndicator
               key={`${indicator.chartId}_${indicator.name}`}
               indicator={indicator}
               setDirectPathToChild={setDirectPathToChild}
             />
           ))}
-        {showExtraIndicatorsInGroup && (
+        {showIndicatorsInGroup && (
           <FilterIndicatorGroup
-            indicators={indicators.slice(FILTER_INDICATORS_DISPLAY_LENGTH)}
+            indicators={indicators}
             setDirectPathToChild={setDirectPathToChild}
           />
         )}

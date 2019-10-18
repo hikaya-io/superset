@@ -50,21 +50,25 @@ else:
 # ---------------------------------------------------------
 PACKAGE_DIR = os.path.join(BASE_DIR, "static", "assets")
 VERSION_INFO_FILE = os.path.join(PACKAGE_DIR, "version_info.json")
-PACKAGE_JSON_FILE = os.path.join(PACKAGE_DIR, "package.json")
+PACKAGE_JSON_FILE = os.path.join(BASE_DIR, "assets" "package.json")
 
-#
+
+def _try_json_readfile(filepath):
+    try:
+        with open(filepath, "r") as f:
+            return json.load(f).get("version")
+    except Exception:
+        return None
+
+
 # Depending on the context in which this config is loaded, the version_info.json file
 # may or may not be available, as it is generated on install via setup.py. In the event
 # that we're actually running Superset, we will have already installed, therefore it WILL
 # exist. When unit tests are running, however, it WILL NOT exist, so we fall
 # back to reading package.json
-#
-try:
-    with open(VERSION_INFO_FILE) as version_file:
-        VERSION_STRING = json.load(version_file)["version"]
-except Exception:
-    with open(PACKAGE_JSON_FILE) as version_file:
-        VERSION_STRING = json.load(version_file)["version"]
+VERSION_STRING = _try_json_readfile(VERSION_INFO_FILE) or _try_json_readfile(
+    PACKAGE_JSON_FILE
+)
 
 ROW_LIMIT = 50000
 VIZ_ROW_LIMIT = 10000
@@ -431,8 +435,14 @@ CELERY_CONFIG = CeleryConfig
 # CELERY_CONFIG = None
 
 # Additional static HTTP headers to be served by your Superset server. Note
-# Flask-Talisman aplies the relevant security HTTP headers.
-HTTP_HEADERS = {}
+# Flask-Talisman applies the relevant security HTTP headers.
+#
+# DEFAULT_HTTP_HEADERS: sets default values for HTTP headers. These may be overridden
+# within the app
+# OVERRIDE_HTTP_HEADERS: sets override values for HTTP headers. These values will
+# override anything set within the app
+DEFAULT_HTTP_HEADERS = {}
+OVERRIDE_HTTP_HEADERS = {}
 
 # The db id here results in selecting this one as a default in SQL Lab
 DEFAULT_DB_ID = None
@@ -449,6 +459,11 @@ SQLLAB_DEFAULT_DBID = None
 # The MAX duration (in seconds) a query can run for before being killed
 # by celery.
 SQLLAB_ASYNC_TIME_LIMIT_SEC = 60 * 60 * 6
+
+# Some databases support running EXPLAIN queries that allow users to estimate
+# query costs before they run. These EXPLAIN queries should have a small
+# timeout.
+SQLLAB_QUERY_COST_ESTIMATE_TIMEOUT = 10  # seconds
 
 # An instantiated derivative of werkzeug.contrib.cache.BaseCache
 # if enabled, it can be used to store the results of long-running queries
@@ -645,6 +660,19 @@ TALISMAN_CONFIG = {
     "force_https": True,
     "force_https_permanent": False,
 }
+
+#
+# Flask session cookie options
+#
+# See https://flask.palletsprojects.com/en/1.1.x/security/#set-cookie-options
+# for details
+#
+SESSION_COOKIE_HTTPONLY = True  # Prevent cookie from being read by frontend JS?
+SESSION_COOKIE_SECURE = False  # Prevent cookie from being transmitted over non-tls?
+SESSION_COOKIE_SAMESITE = "Lax"  # One of [None, 'Lax', 'Strict']
+
+# Flask configuration variables
+SEND_FILE_MAX_AGE_DEFAULT = 60 * 60 * 24 * 365  # Cache static resources
 
 # URI to database storing the example data, points to
 # SQLALCHEMY_DATABASE_URI by default if set to `None`

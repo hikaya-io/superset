@@ -66,9 +66,9 @@ import {
   mainMetric,
 } from '../modules/utils';
 import * as v from './validators';
-import { defaultViewport } from '../modules/geo';
 import ColumnOption from '../components/ColumnOption';
 import OptionDescription from '../components/OptionDescription';
+import { DEFAULT_VIEWPORT } from '../explore/components/controls/ViewportControl';
 
 const categoricalSchemeRegistry = getCategoricalSchemeRegistry();
 const sequentialSchemeRegistry = getSequentialSchemeRegistry();
@@ -591,19 +591,6 @@ export const controls = {
       'Zambia',
     ].map(s => [s, s]),
     description: t('The name of the country that Superset should display'),
-  },
-  country_fieldtype: {
-    type: 'SelectControl',
-    label: t('Country Field Type'),
-    default: 'cca2',
-    choices: [
-      ['name', 'Full name'],
-      ['cioc', 'code International Olympic Committee (cioc)'],
-      ['cca2', 'code ISO 3166-1 alpha-2 (cca2)'],
-      ['cca3', 'code ISO 3166-1 alpha-3 (cca3)'],
-    ],
-    description: t('The country code standard that Superset should expect ' +
-    'to find in the [country] column'),
   },
 
   freq: {
@@ -1312,16 +1299,6 @@ export const controls = {
     description: t('Pick your favorite markup language'),
   },
 
-  rotation: {
-    type: 'SelectControl',
-    label: t('Word Rotation'),
-    choices: formatSelectOptions(['random', 'flat', 'square']),
-    renderTrigger: true,
-    default: 'square',
-    clearable: false,
-    description: t('Rotation to apply to words in the cloud'),
-  },
-
   line_interpolation: {
     type: 'SelectControl',
     label: t('Line Style'),
@@ -1395,24 +1372,6 @@ export const controls = {
       'p95',
       'p99',
     ]),
-  },
-
-  size_from: {
-    type: 'TextControl',
-    isInt: true,
-    label: t('Minimum Font Size'),
-    renderTrigger: true,
-    default: '20',
-    description: t('Font size for the smallest value in the list'),
-  },
-
-  size_to: {
-    type: 'TextControl',
-    isInt: true,
-    label: t('Maximum Font Size'),
-    renderTrigger: true,
-    default: '150',
-    description: t('Font size for the biggest value in the list'),
   },
 
   header_font_size: {
@@ -1583,14 +1542,6 @@ export const controls = {
     renderTrigger: true,
     default: true,
     description: t('Whether to color +/- values'),
-  },
-
-  show_bubbles: {
-    type: 'CheckboxControl',
-    label: t('Show Bubbles'),
-    default: false,
-    renderTrigger: true,
-    description: t('Whether to display bubbles on top of countries'),
   },
 
   show_legend: {
@@ -1916,7 +1867,7 @@ export const controls = {
     renderTrigger: false,
     description: t('Parameters related to the view and perspective on the map'),
     // default is whole world mostly centered
-    default: defaultViewport,
+    default: DEFAULT_VIEWPORT,
     // Viewport changes shouldn't prompt user to re-run query
     dontRefreshOnChange: true,
   },
@@ -2113,27 +2064,6 @@ export const controls = {
       colorNamespace: state.form_data.color_namespace,
       colorScheme: state.form_data.color_scheme,
     }),
-  },
-
-  significance_level: {
-    type: 'TextControl',
-    label: t('Significance Level'),
-    default: 0.05,
-    description: t('Threshold alpha level for determining significance'),
-  },
-
-  pvalue_precision: {
-    type: 'TextControl',
-    label: t('p-value precision'),
-    default: 6,
-    description: t('Number of decimal places with which to display p-values'),
-  },
-
-  liftvalue_precision: {
-    type: 'TextControl',
-    label: t('Lift percent precision'),
-    default: 4,
-    description: t('Number of decimal places with which to display lift values'),
   },
 
   column_collection: {
