@@ -100,13 +100,19 @@ class App extends React.PureComponent {
   render() {
     let content;
     if (this.state.hash) {
-      content = <QuerySearch height={this.state.contentHeight} actions={this.props.actions} />;
+      content = (
+        <QuerySearch
+          height={this.state.contentHeight}
+          actions={this.props.actions}
+          displayLimit={this.props.common.conf.DISPLAY_MAX_ROW}
+        />
+      );
     } else {
       content = (
-        <React.Fragment>
+        <>
           <QueryAutoRefresh />
           <TabbedSqlEditors />
-        </React.Fragment>
+        </>
       );
     }
     return (
@@ -120,12 +126,14 @@ class App extends React.PureComponent {
 
 App.propTypes = {
   actions: PropTypes.object,
+  common: PropTypes.object,
   localStorageUsageInKilobytes: PropTypes.number.isRequired,
 };
 
 function mapStateToProps(state) {
-  const { localStorageUsageInKilobytes } = state;
+  const { common, localStorageUsageInKilobytes } = state;
   return {
+    common,
     localStorageUsageInKilobytes,
   };
 }

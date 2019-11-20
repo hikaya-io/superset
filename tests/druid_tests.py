@@ -15,12 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 """Unit tests for Superset"""
-from datetime import datetime
 import json
 import unittest
+from datetime import datetime
 from unittest.mock import Mock, patch
 
 from superset import db, security_manager
+
+from .base_tests import SupersetTestCase
 
 try:
     from superset.connectors.druid.models import (
@@ -31,7 +33,6 @@ try:
     )
 except ImportError:
     pass
-from .base_tests import SupersetTestCase
 
 
 class PickableMock(Mock):
@@ -94,7 +95,7 @@ GB_RESULT_SET = [
     },
 ]
 
-DruidCluster.get_druid_version = lambda _: "0.9.1"
+DruidCluster.get_druid_version = lambda _: "0.9.1"  # type: ignore
 
 
 class DruidTests(SupersetTestCase):
@@ -492,17 +493,17 @@ class DruidTests(SupersetTestCase):
     )
     def test_urls(self):
         cluster = self.get_test_cluster_obj()
-        self.assertEquals(
+        self.assertEqual(
             cluster.get_base_url("localhost", "9999"), "http://localhost:9999"
         )
-        self.assertEquals(
+        self.assertEqual(
             cluster.get_base_url("http://localhost", "9999"), "http://localhost:9999"
         )
-        self.assertEquals(
+        self.assertEqual(
             cluster.get_base_url("https://localhost", "9999"), "https://localhost:9999"
         )
 
-        self.assertEquals(
+        self.assertEqual(
             cluster.get_base_broker_url(), "http://localhost:7980/druid/v2"
         )
 
@@ -580,7 +581,7 @@ class DruidTests(SupersetTestCase):
         url = "/datasource/external_metadata/druid/{}/".format(datasource.id)
         resp = self.get_json_resp(url)
         col_names = {o.get("name") for o in resp}
-        self.assertEquals(col_names, {"__time", "dim1", "dim2", "metric1"})
+        self.assertEqual(col_names, {"__time", "dim1", "dim2", "metric1"})
 
 
 if __name__ == "__main__":

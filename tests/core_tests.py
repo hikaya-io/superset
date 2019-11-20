@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 """Unit tests for Superset"""
+import cgi
 import csv
 import datetime
 import doctest
@@ -32,7 +33,7 @@ import pandas as pd
 import psycopg2
 import sqlalchemy as sqla
 
-from superset import dataframe, db, jinja_context, security_manager, sql_lab
+from superset import app, dataframe, db, jinja_context, security_manager, sql_lab
 from superset.connectors.sqla.models import SqlaTable
 from superset.db_engine_specs.base import BaseEngineSpec
 from superset.db_engine_specs.mssql import MssqlEngineSpec
@@ -41,6 +42,7 @@ from superset.models.sql_lab import Query
 from superset.utils import core as utils
 from superset.views import core as views
 from superset.views.database.views import DatabaseView
+
 from .base_tests import SupersetTestCase
 from .fixtures.pyodbcRow import Row
 
@@ -597,42 +599,100 @@ class CoreTests(SupersetTestCase):
 
     def test_import_csv(self):
         self.login(username="admin")
-        filename = "testCSV.csv"
         table_name = "".join(random.choice(string.ascii_uppercase) for _ in range(5))
 
-        test_file = open(filename, "w+")
-        test_file.write("a,b\n")
-        test_file.write("john,1\n")
-        test_file.write("paul,2\n")
-        test_file.close()
+        filename_1 = "testCSV.csv"
+        test_file_1 = open(filename_1, "w+")
+        test_file_1.write("a,b\n")
+        test_file_1.write("john,1\n")
+        test_file_1.write("paul,2\n")
+        test_file_1.close()
+
+        filename_2 = "testCSV2.csv"
+        test_file_2 = open(filename_2, "w+")
+        test_file_2.write("b,c,d\n")
+        test_file_2.write("john,1,x\n")
+        test_file_2.write("paul,2,y\n")
+        test_file_2.close()
+
         example_db = utils.get_example_database()
         example_db.allow_csv_upload = True
         db_id = example_db.id
         db.session.commit()
-        test_file = open(filename, "rb")
         form_data = {
-            "csv_file": test_file,
+            "csv_file": open(filename_1, "rb"),
             "sep": ",",
             "name": table_name,
             "con": db_id,
-            "if_exists": "append",
+            "if_exists": "fail",
             "index_label": "test_label",
             "mangle_dupe_cols": False,
         }
         url = "/databaseview/list/"
         add_datasource_page = self.get_resp(url)
-        assert "Upload a CSV" in add_datasource_page
+        self.assertIn("Upload a CSV", add_datasource_page)
 
         url = "/csvtodatabaseview/form"
         form_get = self.get_resp(url)
-        assert "CSV to Database configuration" in form_get
+        self.assertIn("CSV to Database configuration", form_get)
 
         try:
-            # ensure uploaded successfully
+            # initial upload with fail mode
             resp = self.get_resp(url, data=form_data)
-            assert 'CSV file "testCSV.csv" uploaded to table' in resp
+            self.assertIn(
+                f'CSV file "{filename_1}" uploaded to table "{table_name}"', resp
+            )
+
+            # upload again with fail mode; should fail
+            form_data["csv_file"] = open(filename_1, "rb")
+            resp = self.get_resp(url, data=form_data)
+            self.assertIn(
+                f'Unable to upload CSV file "{filename_1}" to table "{table_name}"',
+                resp,
+            )
+
+            # upload again with append mode
+            form_data["csv_file"] = open(filename_1, "rb")
+            form_data["if_exists"] = "append"
+            resp = self.get_resp(url, data=form_data)
+            self.assertIn(
+                f'CSV file "{filename_1}" uploaded to table "{table_name}"', resp
+            )
+
+            # upload again with replace mode
+            form_data["csv_file"] = open(filename_1, "rb")
+            form_data["if_exists"] = "replace"
+            resp = self.get_resp(url, data=form_data)
+            self.assertIn(
+                f'CSV file "{filename_1}" uploaded to table "{table_name}"', resp
+            )
+
+            # try to append to table from file with different schema
+            form_data["csv_file"] = open(filename_2, "rb")
+            form_data["if_exists"] = "append"
+            resp = self.get_resp(url, data=form_data)
+            self.assertIn(
+                f'Unable to upload CSV file "{filename_2}" to table "{table_name}"',
+                resp,
+            )
+
+            # replace table from file with different schema
+            form_data["csv_file"] = open(filename_2, "rb")
+            form_data["if_exists"] = "replace"
+            resp = self.get_resp(url, data=form_data)
+            self.assertIn(
+                f'CSV file "{filename_2}" uploaded to table "{table_name}"', resp
+            )
+            table = (
+                db.session.query(SqlaTable)
+                .filter_by(table_name=table_name, database_id=db_id)
+                .first()
+            )
+            # make sure the new column name is reflected in the table metadata
+            self.assertIn("d", table.column_names)
         finally:
-            os.remove(filename)
+            os.remove(filename_1)
+            os.remove(filename_2)
 
     def test_dataframe_timezone(self):
         tz = psycopg2.tz.FixedOffsetTimezone(offset=60, name=None)
@@ -755,6 +815,49 @@ class CoreTests(SupersetTestCase):
         resp = self.get_resp(f"/superset/select_star/{examples_db.id}/birth_names")
         self.assertIn("gender", resp)
 
+    @mock.patch("superset.views.core.results_backend_use_msgpack", False)
+    @mock.patch("superset.views.core.results_backend")
+    @mock.patch("superset.views.core.db")
+    def test_display_limit(self, mock_superset_db, mock_results_backend):
+        query_mock = mock.Mock()
+        query_mock.sql = "SELECT *"
+        query_mock.database = 1
+        query_mock.schema = "superset"
+        mock_superset_db.session.query().filter_by().one_or_none.return_value = (
+            query_mock
+        )
+
+        data = [{"col_0": i} for i in range(100)]
+        payload = {
+            "status": utils.QueryStatus.SUCCESS,
+            "query": {"rows": 100},
+            "data": data,
+        }
+        # do not apply msgpack serialization
+        use_msgpack = app.config["RESULTS_BACKEND_USE_MSGPACK"]
+        app.config["RESULTS_BACKEND_USE_MSGPACK"] = False
+        serialized_payload = sql_lab._serialize_payload(payload, False)
+        compressed = utils.zlib_compress(serialized_payload)
+        mock_results_backend.get.return_value = compressed
+
+        # get all results
+        result = json.loads(self.get_resp("/superset/results/key/"))
+        expected = {"status": "success", "query": {"rows": 100}, "data": data}
+        self.assertEqual(result, expected)
+
+        # limit results to 1
+        limited_data = data[:1]
+        result = json.loads(self.get_resp("/superset/results/key/?rows=1"))
+        expected = {
+            "status": "success",
+            "query": {"rows": 100},
+            "data": limited_data,
+            "displayLimitReached": True,
+        }
+        self.assertEqual(result, expected)
+
+        app.config["RESULTS_BACKEND_USE_MSGPACK"] = use_msgpack
+
     def test_results_default_deserialization(self):
         use_new_deserialization = False
         data = [("a", 4, 4.0, "2019-08-18T16:39:16.660000")]
@@ -846,6 +949,30 @@ class CoreTests(SupersetTestCase):
 
             self.assertDictEqual(deserialized_payload, payload)
             expand_data.assert_called_once()
+
+    @mock.patch.dict("superset._feature_flags", {"FOO": lambda x: 1}, clear=True)
+    def test_feature_flag_serialization(self):
+        """
+        Functions in feature flags don't break bootstrap data serialization.
+        """
+        self.login()
+
+        encoded = json.dumps(
+            {"FOO": lambda x: 1, "super": "set"},
+            default=utils.pessimistic_json_iso_dttm_ser,
+        )
+        html = cgi.escape(encoded).replace("'", "&#39;").replace('"', "&#34;")
+
+        urls = [
+            "/superset/sqllab",
+            "/superset/welcome",
+            "/superset/dashboard/1/",
+            "/superset/profile/admin/",
+            "/superset/explore/table/1",
+        ]
+        for url in urls:
+            data = self.get_resp(url)
+            self.assertTrue(html in data)
 
 
 if __name__ == "__main__":

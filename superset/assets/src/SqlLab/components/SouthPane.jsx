@@ -23,6 +23,7 @@ import { Alert, Label, Tab, Tabs } from 'react-bootstrap';
 import { connect } from 'react-redux';
 import { bindActionCreators } from 'redux';
 import { t } from '@superset-ui/translation';
+import { isFeatureEnabled, FeatureFlag } from 'src/featureFlags';
 
 import * as Actions from '../actions/sqlLab';
 import QueryHistory from './QueryHistory';
@@ -44,6 +45,7 @@ const propTypes = {
   height: PropTypes.number,
   databases: PropTypes.object.isRequired,
   offline: PropTypes.bool,
+  displayLimit: PropTypes.number.isRequired,
 };
 
 const defaultProps = {
@@ -87,18 +89,26 @@ export class SouthPane extends React.PureComponent {
       latestQuery = props.editorQueries.find(q => q.id === this.props.latestQueryId);
     }
     let results;
-    if (latestQuery &&
-      (Date.now() - latestQuery.startDttm) <= LOCALSTORAGE_MAX_QUERY_AGE_MS) {
-      results = (
-        <ResultSet
-          showControls
-          search
-          query={latestQuery}
-          actions={props.actions}
-          height={innerTabContentHeight}
-          database={this.props.databases[latestQuery.dbId]}
-        />
-      );
+    if (latestQuery) {
+      if (
+        isFeatureEnabled(FeatureFlag.SQLLAB_BACKEND_PERSISTENCE) &&
+        latestQuery.state === 'success' &&
+        (!latestQuery.resultsKey && !latestQuery.results)
+      ) {
+         results = <Alert bsStyle="warning">{t('No stored results found, you need to re-run your query')}</Alert>;
+      } else if ((Date.now() - latestQuery.startDttm) <= LOCALSTORAGE_MAX_QUERY_AGE_MS) {
+        results = (
+          <ResultSet
+            showControls
+            search
+            query={latestQuery}
+            actions={props.actions}
+            height={innerTabContentHeight}
+            database={this.props.databases[latestQuery.dbId]}
+            displayLimit={this.props.displayLimit}
+          />
+        );
+      }
     } else {
       results = <Alert bsStyle="info">{t('Run a query to display results here')}</Alert>;
     }
@@ -115,6 +125,7 @@ export class SouthPane extends React.PureComponent {
           actions={props.actions}
           cache
           height={innerTabContentHeight}
+          displayLimit={this.props.displayLimit}
         />
       </Tab>
     ));
@@ -139,7 +150,11 @@ export class SouthPane extends React.PureComponent {
             title={t('Query History')}
             eventKey="History"
           >
-            <QueryHistory queries={props.editorQueries} actions={props.actions} />
+            <QueryHistory
+              queries={props.editorQueries}
+              actions={props.actions}
+              displayLimit={props.displayLimit}
+            />
           </Tab>
           {dataPreviewTabs}
         </Tabs>

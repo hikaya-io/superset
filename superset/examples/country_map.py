@@ -23,6 +23,7 @@ from sqlalchemy.sql import column
 from superset import db
 from superset.connectors.sqla.models import SqlMetric
 from superset.utils import core as utils
+
 from .helpers import (
     get_example_data,
     get_slice_json,
@@ -89,7 +90,6 @@ def load_country_map_data(only_metadata=False, force=False):
         "granularity_sqla": "",
         "since": "",
         "until": "",
-        "where": "",
         "viz_type": "country_map",
         "entity": "DEPT_ID",
         "metric": {

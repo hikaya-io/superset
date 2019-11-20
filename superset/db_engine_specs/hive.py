@@ -14,16 +14,15 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-from datetime import datetime
 import logging
 import os
 import re
 import time
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib import parse
 
 from sqlalchemy import Column
-from sqlalchemy.engine import create_engine
 from sqlalchemy.engine.base import Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.url import make_url
@@ -98,7 +97,9 @@ class HiveEngineSpec(PrestoEngineSpec):
             return []
 
     @classmethod
-    def create_table_from_csv(cls, form, table):  # pylint: disable=too-many-locals
+    def create_table_from_csv(  # pylint: disable=too-many-locals
+        cls, form, database
+    ) -> None:
         """Uploads a csv file and creates a superset datasource in Hive."""
 
         def convert_to_hive_type(col_type):
@@ -122,16 +123,16 @@ class HiveEngineSpec(PrestoEngineSpec):
         table_name = form.name.data
         schema_name = form.schema.data
 
-        if config.get("UPLOADED_CSV_HIVE_NAMESPACE"):
+        if config["UPLOADED_CSV_HIVE_NAMESPACE"]:
             if "." in table_name or schema_name:
                 raise Exception(
                     "You can't specify a namespace. "
                     "All tables will be uploaded to the `{}` namespace".format(
-                        config.get("HIVE_NAMESPACE")
+                        config["HIVE_NAMESPACE"]
                     )
                 )
             full_table_name = "{}.{}".format(
-                config.get("UPLOADED_CSV_HIVE_NAMESPACE"), table_name
+                config["UPLOADED_CSV_HIVE_NAMESPACE"], table_name
             )
         else:
             if "." in table_name and schema_name:
@@ -174,18 +175,17 @@ class HiveEngineSpec(PrestoEngineSpec):
             ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' STORED AS
             TEXTFILE LOCATION '{location}'
             tblproperties ('skip.header.line.count'='1')"""
-        logging.info(form.con.data)
-        engine = create_engine(form.con.data.sqlalchemy_uri_decrypted)
+        engine = cls.get_engine(database)
         engine.execute(sql)
 
     @classmethod
-    def convert_dttm(cls, target_type: str, dttm: datetime) -> str:
+    def convert_dttm(cls, target_type: str, dttm: datetime) -> Optional[str]:
         tt = target_type.upper()
         if tt == "DATE":
-            return "CAST('{}' AS DATE)".format(dttm.isoformat()[:10])
+            return f"CAST('{dttm.date().isoformat()}' AS DATE)"
         elif tt == "TIMESTAMP":
-            return "CAST('{}' AS TIMESTAMP)".format(dttm.strftime("%Y-%m-%d %H:%M:%S"))
-        return "'{}'".format(dttm.strftime("%Y-%m-%d %H:%M:%S"))
+            return f"""CAST('{dttm.isoformat(sep=" ", timespec="microseconds")}' AS TIMESTAMP)"""  # pylint: disable=line-too-long
+        return None
 
     @classmethod
     def adjust_database_uri(cls, uri, selected_schema=None):
@@ -376,7 +376,9 @@ class HiveEngineSpec(PrestoEngineSpec):
         )
 
     @classmethod
-    def modify_url_for_impersonation(cls, url, impersonate_user: bool, username: str):
+    def modify_url_for_impersonation(
+        cls, url, impersonate_user: bool, username: Optional[str]
+    ):
         """
         Modify the SQL Alchemy URL object with the user to impersonate if applicable.
         :param url: SQLAlchemy URL object
@@ -389,7 +391,7 @@ class HiveEngineSpec(PrestoEngineSpec):
 
     @classmethod
     def get_configuration_for_impersonation(
-        cls, uri: str, impersonate_user: bool, username: str
+        cls, uri: str, impersonate_user: bool, username: Optional[str]
     ) -> Dict[str, str]:
         """
         Return a configuration dictionary that can be merged with other configs
@@ -415,7 +417,7 @@ class HiveEngineSpec(PrestoEngineSpec):
         return configuration
 
     @staticmethod
-    def execute(
+    def execute(  # type: ignore
         cursor, query: str, async_: bool = False
     ):  # pylint: disable=arguments-differ
         kwargs = {"async": async_}
